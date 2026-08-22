@@ -71,19 +71,41 @@ async function signIn(email, password) {
   }
 }
 
-// Cria uma nova conta de login (usada pelo admin para cadastrar outros usuários).
-// Usa só a chave anon/publishable — nunca a service_role — e NÃO mexe na sessão
-// de quem está logado no momento (o admin continua logado normalmente).
 async function signUpUser(email, password) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
     method: 'POST',
-    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+    headers: {
+      apikey: SUPABASE_KEY,
+      'Content-Type': 'application/json'
+    },
     body: JSON.stringify({ email, password }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error_description || data.msg || data.error || 'Não foi possível criar a conta.');
-  if (!data.id && !data.user) throw new Error('Resposta inesperada ao criar a conta.');
-  return data.id ? data : data.user; // formatos variam conforme a versão do Supabase
+
+  const text = await res.text();
+
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error('O servidor retornou uma resposta inválida.');
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      data.error_description ||
+      data.msg ||
+      data.error ||
+      data.message ||
+      'Não foi possível criar a conta.'
+    );
+  }
+
+  if (!data.id && !data.user) {
+    throw new Error('Resposta inesperada ao criar a conta.');
+  }
+
+  return data.id ? data : data.user;
 }
 
 async function signOut() {
@@ -115,6 +137,7 @@ const data = text ? JSON.parse(text) : {};
 
 async function sb(path, options = {}, retry = true) {
   const token = currentSession?.access_token || SUPABASE_KEY;
+
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method: options.method || 'GET',
     headers: {
@@ -125,21 +148,43 @@ async function sb(path, options = {}, retry = true) {
     },
     body: options.body,
   });
+
   if (res.status === 401 && retry && currentSession) {
     const ok = await refreshSession();
-    if (ok) return sb(path, options, false);
+
+    if (ok) {
+      return sb(path, options, false);
+    }
   }
-  if (!res.ok) {
-    let msg = res.statusText;
+
+  const text = await res.text();
+
+  let data = null;
+
+  if (text) {
     try {
-      const j = await res.json();
-      msg = j.message || j.hint || msg;
-    } catch (e) {}
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!res.ok) {
+    const msg =
+      data?.message ||
+      data?.hint ||
+      data?.error_description ||
+      res.statusText ||
+      'Erro ao acessar o servidor.';
+
     throw new Error(msg);
   }
-  if (res.status === 204) return null;
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+
+  if (res.status === 204) {
+    return null;
+  }
+
+  return data;
 }
 
 const get = (table, query = '') => sb(`${table}?select=*${query}`);

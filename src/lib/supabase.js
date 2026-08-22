@@ -152,6 +152,7 @@ async function refreshSession() {
 
 async function request(path, options = {}, retry = true) {
   const token = currentSession?.access_token || SUPABASE_KEY;
+
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method: options.method || 'GET',
     headers: {
@@ -165,21 +166,40 @@ async function request(path, options = {}, retry = true) {
 
   if (res.status === 401 && retry && currentSession) {
     const ok = await refreshSession();
-    if (ok) return request(path, options, false);
+
+    if (ok) {
+      return request(path, options, false);
+    }
+  }
+
+  const text = await res.text();
+
+  let data = null;
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
   }
 
   if (!res.ok) {
-    let message = res.statusText;
-    try {
-      const data = await res.json();
-      message = data.message || data.hint || message;
-    } catch {}
+    const message =
+      data?.message ||
+      data?.hint ||
+      data?.error_description ||
+      res.statusText ||
+      'Erro ao acessar o servidor.';
+
     throw new Error(message);
   }
 
-  if (res.status === 204) return null;
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  if (res.status === 204) {
+    return null;
+  }
+
+  return data;
 }
 
 export const get = (table, query = '') => request(`${table}?select=*${query}`);
