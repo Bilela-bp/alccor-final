@@ -1,3 +1,5 @@
+// Build de produção ALCCOR
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
