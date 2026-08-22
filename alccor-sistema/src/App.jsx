@@ -6,6 +6,8 @@ import {
   AlertTriangle, LogOut, ChevronRight, ChevronDown, Lock, Unlock, Check, Sun, Moon,
   ClipboardList, BarChart3, History, CalendarDays, RefreshCw
 } from 'lucide-react';
+console.log("teste");
+console.log(import.meta.env.VITE_SUPABASE_URL);
 
 // =========================================================================
 // SUPABASE CONFIG (lido de variáveis de ambiente — ver .env)
