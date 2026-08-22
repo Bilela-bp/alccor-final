@@ -33,15 +33,42 @@ function saveSession(session) {
 
 // Faz login com e-mail e senha via Supabase Auth
 async function signIn(email, password) {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error_description || data.msg || 'E-mail ou senha inválidos.');
-  saveSession(data);
-  return data;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const text = await res.text();
+
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error(`Resposta inválida do servidor: ${text || 'resposta vazia'}`);
+    }
+
+    if (!res.ok) {
+      throw new Error(
+        data.error_description ||
+        data.msg ||
+        data.message ||
+        `Erro de autenticação (${res.status})`
+      );
+    }
+
+    saveSession(data);
+    return data;
+
+  } catch (error) {
+    console.error('Erro no login:', error);
+    throw error;
+  }
 }
 
 // Cria uma nova conta de login (usada pelo admin para cadastrar outros usuários).
@@ -80,11 +107,8 @@ async function refreshSession() {
       headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: currentSession.refresh_token }),
     });
-    const data = await res.json();
-    if (!res.ok) return false;
-    saveSession(data);
-    return true;
-  } catch (e) {
+   const text = await res.text();
+const data = text ? JSON.parse(text) : {};
     return false;
   }
 }
