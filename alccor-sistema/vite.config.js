@@ -1,4 +1,4 @@
-// NOVO deploy
+// NOVO deploy api
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
