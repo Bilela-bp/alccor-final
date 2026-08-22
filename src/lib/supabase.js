@@ -24,26 +24,79 @@ function saveSession(session) {
 export const getCurrentSession = () => currentSession;
 
 export async function signIn(email, password) {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error_description || data.msg || 'E-mail ou senha inválidos.');
+  const res = await fetch(
+    `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password }),
+    }
+  );
+
+  const text = await res.text();
+
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error('O servidor retornou uma resposta inválida.');
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      data.error_description ||
+      data.msg ||
+      data.error ||
+      data.message ||
+      'E-mail ou senha inválidos.'
+    );
+  }
+
   saveSession(data);
   return data;
 }
 
 export async function signUpUser(email, password) {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error_description || data.msg || data.error || 'Não foi possível criar a conta.');
-  if (!data.id && !data.user) throw new Error('Resposta inesperada ao criar a conta.');
+  const res = await fetch(
+    `${SUPABASE_URL}/auth/v1/signup`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password }),
+    }
+  );
+
+  const text = await res.text();
+
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error('O servidor retornou uma resposta inválida.');
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      data.error_description ||
+      data.msg ||
+      data.error ||
+      data.message ||
+      'Não foi possível criar a conta.'
+    );
+  }
+
+  if (!data.id && !data.user) {
+    throw new Error('Resposta inesperada ao criar a conta.');
+  }
+
   return data.id ? data : data.user;
 }
 
@@ -61,16 +114,37 @@ export async function signOut() {
 
 async function refreshSession() {
   if (!currentSession?.refresh_token) return false;
+
   try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-      method: 'POST',
-      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: currentSession.refresh_token }),
-    });
-    const data = await res.json();
+    const res = await fetch(
+      `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          refresh_token: currentSession.refresh_token
+        }),
+      }
+    );
+
+    const text = await res.text();
+
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      return false;
+    }
+
     if (!res.ok) return false;
+
     saveSession(data);
     return true;
+
   } catch {
     return false;
   }
