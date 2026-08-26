@@ -86,7 +86,7 @@ export default function RelatoriosPage() {
         <table className="w-full text-sm"><thead><tr className="bg-stone-50 border-b border-stone-200">
           <th className="text-left px-4 py-2.5">Data</th><th className="text-left px-4 py-2.5">Tipo</th><th className="text-left px-4 py-2.5">Categoria</th><th className="text-left px-4 py-2.5">Descrição</th><th className="text-right px-4 py-2.5">Valor</th>
         </tr></thead><tbody>{fluxo.map(m=><tr key={m.id} className="border-b border-stone-100">
-          <td className="px-4 py-2.5">{fmtDateTime(m.data)}</td><td className="px-4 py-2.5">{m.tipo==='entrada'?<Badge tone="green">Entrada</Badge>:<Badge tone="red">Saída</Badge>}</td><td className="px-4 py-2.5">{m.categoria||'—'}</td><td className="px-4 py-2.5">{m.descricao||'—'}</td><td className="px-4 py-2.5 text-right font-medium">{fmtCurrency(m.valor)}</td>
+          <td className="px-4 py-2.5">{fmtDateTime(m.data)}</td><td className="px-4 py-2.5">{m.tipo==='entrada'?<Badge tone="green">Entrada</Badge>:<Badge tone="red">Saída</Badge>}</td><td className="px-4 py-2.5">{m.categoria||'—'}</td><td className="px-4 py-2.5 align-top whitespace-normal break-words max-w-[220px]">{m.descricao||'—'}</td><td className="px-4 py-2.5 text-right font-medium">{fmtCurrency(m.valor)}</td>
         </tr>)}</tbody></table>
         {fluxo.length===0 && <EmptyState icon={Wallet} text="Nenhuma movimentação no período."/>}
       </div>
@@ -99,7 +99,7 @@ function ReportTable({ title, rows, nameFor, dateKey, statusLabels, total }) {
     {rows.length===0 ? <EmptyState icon={FileText} text="Nenhum lançamento no período."/> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-stone-50 border-b border-stone-200">
       <th className="text-left px-4 py-2.5">Descrição</th><th className="text-left px-4 py-2.5">Favorecido</th><th className="text-left px-4 py-2.5">Vencimento</th><th className="text-right px-4 py-2.5">Valor</th><th className="text-left px-4 py-2.5">Status</th>
     </tr></thead><tbody>{rows.map(r=><tr key={r.id} className="border-b border-stone-100">
-      <td className="px-4 py-2.5">{r.descricao}</td><td className="px-4 py-2.5">{nameFor(r.cliente_id || r.fornecedor_id)}</td><td className="px-4 py-2.5">{fmtDate(r[dateKey])}</td><td className="px-4 py-2.5 text-right">{fmtCurrency(r.valor)}</td><td className="px-4 py-2.5">{r.status==='recebido'||r.status==='pago'?<Badge tone="green">{statusLabels[r.status]}</Badge>:<Badge tone="amber">{statusLabels[r.status]||r.status}</Badge>}</td>
+      <td className="px-4 py-2.5 align-top whitespace-normal break-words max-w-[220px]">{r.descricao}</td><td className="px-4 py-2.5">{nameFor(r.cliente_id || r.fornecedor_id)}</td><td className="px-4 py-2.5">{fmtDate(r[dateKey])}</td><td className="px-4 py-2.5 text-right">{fmtCurrency(r.valor)}</td><td className="px-4 py-2.5">{r.status==='recebido'||r.status==='pago'?<Badge tone="green">{statusLabels[r.status]}</Badge>:<Badge tone="amber">{statusLabels[r.status]||r.status}</Badge>}</td>
     </tr>)}</tbody></table></div>}
   </div>;
 }

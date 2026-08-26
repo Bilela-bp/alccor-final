@@ -53,12 +53,15 @@ Execute, nesta ordem, no SQL Editor do Supabase todos os arquivos de
 1. **`migration.sql`** — cria as tabelas `notas_fiscais`, `notas_fiscais_itens`,
    `funcionarios` e `folha_pagamento`, o gatilho que atualiza o estoque
    automaticamente ao lançar uma nota fiscal, e habilita o RLS.
-2. **`migration_002_clientes.sql`** — torna telefone e CPF/CNPJ obrigatórios
-   no cadastro de clientes.
-3. **`migration_003_custo_medio_e_ajustes.sql`** — a mais importante do lote:
-   torna o CNPJ obrigatório em fornecedores, remove a coluna "unidade" de
-   produtos, e corrige o cálculo de custo (agora por **média ponderada** a
-   cada nota fiscal lançada).
+2. **`migration_002_clientes.sql`** — adiciona CPF/CNPJ ao cadastro de clientes.
+   **A tela atual do sistema não depende desses campos**, pois o cadastro-base
+   existente pode ter apenas `id`, `nome`, `telefone`, `email`, `endereco` e
+   `criado_em`.
+3. **`migration_003_custo_medio_e_ajustes.sql`** — ajusta o CNPJ de fornecedores,
+   remove a coluna "unidade" de produtos e corrige o cálculo de custo (agora por
+   **média ponderada** a cada nota fiscal lançada). A tela de fornecedores atual
+   usa somente os campos do cadastro-base, evitando erro caso `cnpj` ainda não
+   exista no banco.
 4. **`migration_004_produtos.sql`** — remove "preço de venda" e define 0 como
    padrão para custo, estoque atual e estoque mínimo.
 5. **`migration_005_nf_unica_e_gatilhos.sql`** — impede número de nota
@@ -72,6 +75,12 @@ Execute, nesta ordem, no SQL Editor do Supabase todos os arquivos de
    contas a receber, relatórios financeiros com exportação CSV, e histórico
    de alterações por usuário (menu **Histórico de alterações**, só para
    admins).
+9. **`migration_009_orcamentos_historico.sql`** — inclui os orçamentos no
+   histórico de alterações.
+10. **`migration_010_orcamentos_anexo_status.sql`** — adiciona o status
+    **"Projeto concluído"** aos orçamentos e cria o espaço de armazenamento
+    (bucket `orcamentos-projetos`) usado para anexar o projeto em `.zip` de
+    cada orçamento.
 
 O login é com **e-mail e senha de verdade**, usando o Supabase Auth. Para o
 primeiro usuário (você), crie a conta em Authentication → Users e depois

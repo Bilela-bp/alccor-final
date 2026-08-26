@@ -416,3 +416,57 @@ export const deleteRow = (
         'return=minimal',
     }
   );
+
+
+// ======================================================
+// STORAGE (upload de arquivos — ex: projeto em zip anexado ao orçamento)
+// ======================================================
+
+const STORAGE_BUCKET = 'orcamentos-projetos';
+
+export async function uploadFile(path, file) {
+  const token = currentSession?.access_token || SUPABASE_KEY;
+  const res = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': file.type || 'application/zip',
+        'x-upsert': 'true',
+      },
+      body: file,
+    }
+  );
+  if (!res.ok) {
+    let msg = 'Erro ao enviar o arquivo.';
+    try {
+      const data = await res.json();
+      msg = data?.message || data?.error || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+  return path;
+}
+
+export async function deleteFile(path) {
+  const token = currentSession?.access_token || SUPABASE_KEY;
+  try {
+    await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`,
+      {
+        method: 'DELETE',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+  } catch {}
+}
+
+export function getFilePublicUrl(path) {
+  if (!path) return null;
+  return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
+}

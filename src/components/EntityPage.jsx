@@ -251,7 +251,7 @@ export default function EntityPage({ table, title, Icon, fields, subtitle, onCha
                 {paginatedRows.map((row) => (
                   <tr key={row.id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50">
                     {listFields.map((f) => (
-                      <td key={f.key} className="px-4 py-2.5 text-stone-800 break-words">
+                      <td key={f.key} className="px-4 py-2.5 text-stone-800 align-top whitespace-normal break-words max-w-[220px]">
                         {f.render ? f.render(row[f.key], row) : f.refTable ? labelFor(f, row[f.key]) : f.type === 'boolean' ? (
                           row[f.key] ? <Badge tone="green">Ativo</Badge> : <Badge tone="gray">Inativo</Badge>
                         ) : f.type === 'date' ? fmtDate(row[f.key]) : f.type === 'number' && f.currency ? fmtCurrency(row[f.key]) : (row[f.key] ?? '—')}

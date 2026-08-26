@@ -1,44 +1,63 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Check, ClipboardList, Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
-import { get, insertRow, insertRows, updateRow, deleteRow } from '../lib/supabase';
-import { fmtCurrency, fmtDate, todayISO } from '../lib/helpers';
+import { Check, ClipboardList, FileArchive, Paperclip, Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { get, insertRow, updateRow, deleteRow, uploadFile, deleteFile, getFilePublicUrl } from '../lib/supabase';
+import { fmtCurrency, fmtDate, todayISO, makeUuid } from '../lib/helpers';
 import { WOOD } from '../lib/theme';
 import { Badge, ComboSelect, EmptyState, Field, LoadingRows, Modal, PageHeader, PrimaryButton, SecondaryButton, Stat, Pagination, inputCls } from '../components/ui';
 
 // =========================================================================
-// ORÇAMENTOS (propostas para clientes + comparativo de conversão)
+// ORÇAMENTOS (dados do cliente, valor final e anexo do projeto em zip)
 // =========================================================================
+
+const STATUS_LABEL = {
+  orcamento: 'Orçamento',
+  em_andamento: 'Em andamento',
+  concluido: 'Projeto concluído',
+};
+
+const STATUS_TONE = {
+  orcamento: 'amber',
+  em_andamento: 'green',
+  concluido: 'blue',
+};
+
+const PROXIMO_STATUS = {
+  orcamento: 'em_andamento',
+  em_andamento: 'concluido',
+  concluido: 'orcamento',
+};
+
+function formatBytes(bytes) {
+  if (!bytes) return '';
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(0)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
 export default function OrcamentosPage({ user }) {
   const submittingRef = useRef(false);
   const [orcamentos, setOrcamentos] = useState([]);
   const [clientes, setClientes] = useState([]);
-  const [produtos, setProdutos] = useState([]);
-  const [historicoProdutos, setHistoricoProdutos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [oldItemIds, setOldItemIds] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [carregandoItens, setCarregandoItens] = useState(false);
   const [pagina, setPagina] = useState(1);
 
-  const [header, setHeader] = useState({ cliente_id: '', data: todayISO(), descricao: '', status: 'orcamento' });
-  const [itens, setItens] = useState([{ produto_id: '', quantidade: '', preco_unitario: '' }]);
+  const [header, setHeader] = useState({ cliente_id: '', data: todayISO(), descricao: '', status: 'orcamento', valor_total: '' });
+  const [arquivo, setArquivo] = useState(null); // novo arquivo escolhido (File) para enviar
+  const [removerArquivo, setRemoverArquivo] = useState(false); // marca que o anexo existente deve ser removido
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [o, c, p, h] = await Promise.all([
+      const [o, c] = await Promise.all([
         get('orcamentos', '&order=data.desc,criado_em.desc'),
         get('clientes', '&order=nome.asc'),
-        get('produtos', '&order=nome.asc'),
-        get('historico_alteracoes', '&tabela=eq.produtos&order=created_at.desc'),
       ]);
       setOrcamentos(o || []);
       setClientes(c || []);
-      setProdutos(p || []);
-      setHistoricoProdutos(h || []);
     } catch (e) {
       console.error(e);
     }
@@ -49,93 +68,67 @@ export default function OrcamentosPage({ user }) {
 
   function openNew() {
     setEditing(null);
-    setOldItemIds([]);
-    setHeader({ cliente_id: '', data: todayISO(), descricao: '', status: 'orcamento' });
-    setItens([{ produto_id: '', quantidade: '', preco_unitario: '' }]);
+    setHeader({ cliente_id: '', data: todayISO(), descricao: '', status: 'orcamento', valor_total: '' });
+    setArquivo(null);
+    setRemoverArquivo(false);
     setModalOpen(true);
   }
 
-  async function openEdit(row) {
+  function openEdit(row) {
     setEditing(row);
-    setModalOpen(true);
-    setCarregandoItens(true);
     setHeader({
       cliente_id: row.cliente_id || '',
       data: row.data || todayISO(),
       descricao: row.descricao || '',
       status: row.status || 'orcamento',
+      valor_total: row.valor_total ?? '',
     });
-    try {
-      const data = await get('orcamentos_itens', `&orcamento_id=eq.${row.id}&order=criado_em.asc`);
-      setOldItemIds((data || []).map((it) => it.id));
-      setItens((data || []).length
-        ? data.map((it) => ({ produto_id: it.produto_id, quantidade: it.quantidade, preco_unitario: it.preco_unitario }))
-        : [{ produto_id: '', quantidade: '', preco_unitario: '' }]);
-    } catch (e) {
-      window.alert('Erro ao carregar itens do orçamento: ' + e.message);
-      setItens([{ produto_id: '', quantidade: '', preco_unitario: '' }]);
-    }
-    setCarregandoItens(false);
+    setArquivo(null);
+    setRemoverArquivo(false);
+    setModalOpen(true);
   }
-
-  // O valor do item vem diretamente do custo atual no estoque.
-  // O histórico fica apenas como fallback para produtos antigos que ainda não tenham custo preenchido.
-  function valorCustoProduto(produtoId) {
-    const produto = produtos.find((p) => p.id === produtoId);
-    if (produto && produto.preco_custo !== null && produto.preco_custo !== undefined) {
-      return Number(produto.preco_custo) || 0;
-    }
-    const registro = historicoProdutos.find((r) => r.registro_id === produtoId && r.dados_novos?.preco_custo !== undefined && r.dados_novos?.preco_custo !== null);
-    return registro ? Number(registro.dados_novos.preco_custo) || 0 : 0;
-  }
-
-  function updateItem(i, key, value) {
-    const copy = [...itens];
-    copy[i] = { ...copy[i], [key]: value };
-    if (key === 'produto_id') copy[i].preco_unitario = valorCustoProduto(value);
-    setItens(copy);
-  }
-  function addItemRow() { setItens([...itens, { produto_id: '', quantidade: '', preco_unitario: '' }]); }
-  function removeItemRow(i) { setItens(itens.filter((_, idx) => idx !== i)); }
-
-  const total = itens.reduce((s, it) => s + (Number(it.quantidade) || 0) * (Number(it.preco_unitario) || 0), 0);
 
   async function handleSave(e) {
     e.preventDefault();
     if (submittingRef.current) return; // evita lançamento duplicado (duplo clique / Enter + clique)
-    const validItens = itens.filter((it) => it.produto_id && Number(it.quantidade) > 0);
     if (!header.cliente_id) { window.alert('Selecione o cliente.'); return; }
-    if (validItens.length === 0) { window.alert('Adicione ao menos um item válido.'); return; }
+    if (header.valor_total === '' || Number(header.valor_total) < 0) { window.alert('Informe o valor final do orçamento.'); return; }
 
     submittingRef.current = true;
     setSaving(true);
     try {
-      const payloadHeader = {
+      const payload = {
         cliente_id: header.cliente_id,
         data: header.data,
         descricao: header.descricao || null,
         status: header.status,
-        valor_total: total,
+        valor_total: Number(header.valor_total),
         usuario_id: user.id,
       };
 
-      let orcamentoId;
-      if (editing) {
-        await updateRow('orcamentos', editing.id, payloadHeader);
-        orcamentoId = editing.id;
-        for (const id of oldItemIds) await deleteRow('orcamentos_itens', id);
-      } else {
-        const criado = await insertRow('orcamentos', payloadHeader);
-        orcamentoId = criado[0].id;
+      // Remoção do anexo existente (sem enviar um novo no lugar)
+      if (removerArquivo && editing?.arquivo_projeto_path) {
+        await deleteFile(editing.arquivo_projeto_path);
+        payload.arquivo_projeto_path = null;
+        payload.arquivo_projeto_nome = null;
+        payload.arquivo_projeto_tamanho = null;
       }
 
-      const rows = validItens.map((it) => ({
-        orcamento_id: orcamentoId,
-        produto_id: it.produto_id,
-        quantidade: Number(it.quantidade),
-        preco_unitario: Number(it.preco_unitario),
-      }));
-      await insertRows('orcamentos_itens', rows);
+      // Upload de um novo arquivo (substitui o anterior, se houver)
+      if (arquivo) {
+        if (editing?.arquivo_projeto_path) await deleteFile(editing.arquivo_projeto_path);
+        const path = `${editing ? editing.id : makeUuid()}/${Date.now()}-${arquivo.name}`;
+        await uploadFile(path, arquivo);
+        payload.arquivo_projeto_path = path;
+        payload.arquivo_projeto_nome = arquivo.name;
+        payload.arquivo_projeto_tamanho = arquivo.size;
+      }
+
+      if (editing) {
+        await updateRow('orcamentos', editing.id, payload);
+      } else {
+        await insertRow('orcamentos', payload);
+      }
 
       setModalOpen(false);
       await load();
@@ -149,6 +142,7 @@ export default function OrcamentosPage({ user }) {
   async function handleDelete(row) {
     if (!window.confirm('Excluir este orçamento? Essa ação não pode ser desfeita.')) return;
     try {
+      if (row.arquivo_projeto_path) await deleteFile(row.arquivo_projeto_path);
       await deleteRow('orcamentos', row.id);
       await load();
     } catch (e) {
@@ -156,10 +150,9 @@ export default function OrcamentosPage({ user }) {
     }
   }
 
-  async function toggleStatus(row) {
-    const novoStatus = row.status === 'em_andamento' ? 'orcamento' : 'em_andamento';
+  async function avancarStatus(row) {
     try {
-      await updateRow('orcamentos', row.id, { status: novoStatus });
+      await updateRow('orcamentos', row.id, { status: PROXIMO_STATUS[row.status] || 'orcamento' });
       await load();
     } catch (e) {
       window.alert('Erro ao atualizar status: ' + e.message);
@@ -175,8 +168,10 @@ export default function OrcamentosPage({ user }) {
 
   const totalOrcamentos = orcamentos.length;
   const emAndamento = orcamentos.filter((o) => o.status === 'em_andamento').length;
-  const taxaConversao = totalOrcamentos > 0 ? Math.round((emAndamento / totalOrcamentos) * 100) : 0;
+  const concluidos = orcamentos.filter((o) => o.status === 'concluido').length;
+  const taxaConversao = totalOrcamentos > 0 ? Math.round(((emAndamento + concluidos) / totalOrcamentos) * 100) : 0;
   const valorEmAndamento = orcamentos.filter((o) => o.status === 'em_andamento').reduce((s, o) => s + Number(o.valor_total || 0), 0);
+  const valorConcluido = orcamentos.filter((o) => o.status === 'concluido').reduce((s, o) => s + Number(o.valor_total || 0), 0);
   const valorTotalOrcado = orcamentos.reduce((s, o) => s + Number(o.valor_total || 0), 0);
 
   return (
@@ -191,10 +186,11 @@ export default function OrcamentosPage({ user }) {
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
         <Stat label="Orçamentos criados" value={totalOrcamentos} sub={fmtCurrency(valorTotalOrcado)} />
-        <Stat label="Projetos em andamento" value={emAndamento} tone="green" sub={fmtCurrency(valorEmAndamento)} />
-        <Stat label="Taxa de conversão" value={`${taxaConversao}%`} tone="amber" sub="Orçamentos que viraram projeto" />
+        <Stat label="Em andamento" value={emAndamento} tone="amber" sub={fmtCurrency(valorEmAndamento)} />
+        <Stat label="Projetos concluídos" value={concluidos} tone="green" sub={fmtCurrency(valorConcluido)} />
+        <Stat label="Taxa de conversão" value={`${taxaConversao}%`} sub="Orçamentos que viraram projeto" />
       </div>
 
       <div className="bg-white border border-stone-200 rounded-xl p-5 mb-4">
@@ -211,8 +207,8 @@ export default function OrcamentosPage({ user }) {
           </div>
           <div>
             <div className="flex justify-between text-xs text-stone-500 mb-1">
-              <span>Projetos em andamento</span>
-              <span>{emAndamento}</span>
+              <span>Em andamento ou concluídos</span>
+              <span>{emAndamento + concluidos}</span>
             </div>
             <div className="h-3 rounded-full bg-stone-100 overflow-hidden">
               <div className="h-full rounded-full transition-all" style={{ width: `${taxaConversao}%`, backgroundColor: WOOD.accent }} />
@@ -222,7 +218,7 @@ export default function OrcamentosPage({ user }) {
         <p className="text-xs text-stone-400 mt-3">
           {totalOrcamentos === 0
             ? 'Nenhum orçamento lançado ainda.'
-            : `${emAndamento} de ${totalOrcamentos} orçamento(s) viraram projeto — taxa de conversão de ${taxaConversao}%.`}
+            : `${emAndamento + concluidos} de ${totalOrcamentos} orçamento(s) viraram projeto — taxa de conversão de ${taxaConversao}%.`}
         </p>
       </div>
 
@@ -239,6 +235,7 @@ export default function OrcamentosPage({ user }) {
                   <th className="text-left px-4 py-2.5 font-medium text-stone-500">Data</th>
                   <th className="text-right px-4 py-2.5 font-medium text-stone-500">Valor</th>
                   <th className="text-left px-4 py-2.5 font-medium text-stone-500">Status</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-stone-500">Projeto</th>
                   <th className="px-4 py-2.5 w-32"></th>
                 </tr>
               </thead>
@@ -246,20 +243,36 @@ export default function OrcamentosPage({ user }) {
                 {paginated.map((o) => (
                   <tr key={o.id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50">
                     <td className="px-4 py-2.5 font-medium text-stone-800">{clienteNome(o.cliente_id)}</td>
-                    <td className="px-4 py-2.5 text-stone-700">{o.descricao || '—'}</td>
+                    <td className="px-4 py-2.5 text-stone-700 align-top whitespace-normal break-words max-w-[220px]">{o.descricao || '—'}</td>
                     <td className="px-4 py-2.5 text-stone-700">{fmtDate(o.data)}</td>
                     <td className="px-4 py-2.5 text-right font-medium text-stone-800">{fmtCurrency(o.valor_total)}</td>
                     <td className="px-4 py-2.5">
-                      {o.status === 'em_andamento' ? <Badge tone="green">Em andamento</Badge> : <Badge tone="amber">Orçamento</Badge>}
+                      <Badge tone={STATUS_TONE[o.status] || 'gray'}>{STATUS_LABEL[o.status] || o.status}</Badge>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {o.arquivo_projeto_path ? (
+                        <a
+                          href={getFilePublicUrl(o.arquivo_projeto_path)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                          style={{ color: WOOD.accentDark }}
+                          title={o.arquivo_projeto_nome}
+                        >
+                          <FileArchive size={14} /> {formatBytes(o.arquivo_projeto_tamanho) || 'baixar'}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-stone-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1 justify-end">
                         <button
-                          onClick={() => toggleStatus(o)}
-                          title={o.status === 'em_andamento' ? 'Voltar para orçamento' : 'Marcar como em andamento'}
+                          onClick={() => avancarStatus(o)}
+                          title={`Marcar como "${STATUS_LABEL[PROXIMO_STATUS[o.status] || 'orcamento']}"`}
                           className="p-1.5 rounded-lg text-stone-500 hover:bg-stone-100 hover:text-stone-800"
                         >
-                          {o.status === 'em_andamento' ? <RefreshCw size={15} /> : <Check size={15} />}
+                          {o.status === 'concluido' ? <RefreshCw size={15} /> : <Check size={15} />}
                         </button>
                         <button onClick={() => openEdit(o)} className="p-1.5 rounded-lg text-stone-500 hover:bg-stone-100 hover:text-stone-800">
                           <Pencil size={15} />
@@ -279,8 +292,8 @@ export default function OrcamentosPage({ user }) {
       </div>
 
       {modalOpen && (
-        <Modal title={editing ? 'Editar orçamento' : 'Novo orçamento'} onClose={() => setModalOpen(false)} wide>
-          <form onSubmit={handleSave} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault(); }}>
+        <Modal title={editing ? 'Editar orçamento' : 'Novo orçamento'} onClose={() => setModalOpen(false)}>
+          <form onSubmit={handleSave}>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Cliente" required>
                 <ComboSelect
@@ -298,46 +311,61 @@ export default function OrcamentosPage({ user }) {
               </Field>
               <Field label="Status" required>
                 <select className={inputCls} value={header.status} onChange={(e) => setHeader({ ...header, status: e.target.value })}>
-                  <option value="orcamento">Orçamento criado</option>
-                  <option value="em_andamento">Projeto em andamento</option>
+                  <option value="orcamento">Orçamento</option>
+                  <option value="em_andamento">Em andamento</option>
+                  <option value="concluido">Projeto concluído</option>
                 </select>
+              </Field>
+              <Field label="Valor final (R$)" required hint="Valor total combinado com o cliente.">
+                <input type="number" step="any" min="0" className={inputCls} required value={header.valor_total} onChange={(e) => setHeader({ ...header, valor_total: e.target.value })} />
+              </Field>
+              <Field label="Projeto (arquivo .zip)" hint="Anexe o projeto completo compactado em .zip.">
+                {editing?.arquivo_projeto_path && !removerArquivo && !arquivo ? (
+                  <div className="flex items-center justify-between gap-2 border border-stone-200 rounded-lg px-3 py-2 bg-stone-50">
+                    <a
+                      href={getFilePublicUrl(editing.arquivo_projeto_path)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline truncate"
+                      style={{ color: WOOD.accentDark }}
+                    >
+                      <FileArchive size={15} /> <span className="truncate">{editing.arquivo_projeto_nome}</span>
+                    </a>
+                    <button type="button" onClick={() => setRemoverArquivo(true)} className="text-stone-400 hover:text-red-600 shrink-0" title="Remover anexo">
+                      <X size={15} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 flex items-center gap-2 border border-dashed border-stone-300 rounded-lg px-3 py-2 text-sm text-stone-500 cursor-pointer hover:border-stone-400">
+                      <Paperclip size={15} />
+                      <span className="truncate">{arquivo ? arquivo.name : (removerArquivo ? 'Anexo será removido — escolher novo arquivo…' : 'Escolher arquivo .zip…')}</span>
+                      <input
+                        type="file"
+                        accept=".zip,application/zip,application/x-zip-compressed"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          if (!f.name.toLowerCase().endsWith('.zip')) { window.alert('Selecione um arquivo .zip.'); return; }
+                          setArquivo(f);
+                          setRemoverArquivo(false);
+                        }}
+                      />
+                    </label>
+                    {arquivo && (
+                      <button type="button" onClick={() => setArquivo(null)} className="text-stone-400 hover:text-red-600 shrink-0" title="Cancelar seleção">
+                        <X size={15} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </Field>
             </div>
 
-            <p className="text-sm font-medium text-stone-700 mt-2 mb-2">Itens do orçamento</p>
-            {carregandoItens ? (
-              <p className="text-sm text-stone-400 mb-4">Carregando itens…</p>
-            ) : (
-              <>
-                <div className="space-y-2 mb-2">
-                  {itens.map((it, i) => (
-                    <div key={i} className="flex flex-wrap gap-2 items-start bg-stone-50 border border-stone-200 rounded-lg p-2">
-                      <div style={{ flex: '2 1 0%', minWidth: '12rem' }}>
-                        <ComboSelect
-                          options={produtos.filter((p) => p.ativo !== false).map((p) => ({ id: p.id, label: p.nome, sublabel: p.categoria || '' }))}
-                          value={it.produto_id}
-                          onChange={(id) => updateItem(i, 'produto_id', id)}
-                          placeholder="Buscar produto por nome ou grupo…"
-                        />
-                      </div>
-                      <input type="number" step="any" placeholder="Qtd" className={inputCls} style={{ width: '5.5rem', flexShrink: 0 }} value={it.quantidade} onChange={(e) => updateItem(i, 'quantidade', e.target.value)} />
-                      <input type="number" step="any" placeholder="Valor do histórico" className={inputCls + ' bg-stone-100'} style={{ width: '9rem', flexShrink: 0 }} value={it.preco_unitario} readOnly title="Valor preenchido automaticamente pelo histórico do produto" />
-                      <button type="button" onClick={() => removeItemRow(i)} className="p-2 text-stone-400 hover:text-red-600"><X size={16} /></button>
-                    </div>
-                  ))}
-                </div>
-                <button type="button" onClick={addItemRow} className="text-sm font-medium mb-4" style={{ color: WOOD.accentDark }}>+ adicionar item</button>
-              </>
-            )}
-
-            <div className="flex items-center justify-between border-t border-stone-200 pt-3 mb-4">
-              <span className="text-sm text-stone-500">Valor total do orçamento</span>
-              <span className="font-display text-lg font-semibold text-stone-900">{fmtCurrency(total)}</span>
-            </div>
-
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end mt-5">
               <SecondaryButton onClick={() => setModalOpen(false)}>Cancelar</SecondaryButton>
-              <PrimaryButton type="submit" disabled={saving || carregandoItens}>{saving ? 'Salvando…' : 'Salvar orçamento'}</PrimaryButton>
+              <PrimaryButton type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar orçamento'}</PrimaryButton>
             </div>
           </form>
         </Modal>

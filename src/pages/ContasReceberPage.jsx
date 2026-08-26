@@ -197,7 +197,7 @@ export default function ContasReceberPage({ user }) {
               </tr></thead>
               <tbody>{paginated.map(r => (
                 <tr key={r.id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50">
-                  <td className="px-4 py-2.5 font-medium text-stone-800">{r.descricao}</td>
+                  <td className="px-4 py-2.5 font-medium text-stone-800 align-top whitespace-normal break-words max-w-[220px]">{r.descricao}</td>
                   <td className="px-4 py-2.5 text-stone-700">{clienteNome(r.cliente_id)}</td>
                   <td className="px-4 py-2.5 text-stone-500">{r.total_parcelas > 1 ? `${r.numero_parcela}/${r.total_parcelas}` : 'À vista'}</td>
                   <td className="px-4 py-2.5 text-stone-700">{fmtDate(r.data_vencimento)}</td>
