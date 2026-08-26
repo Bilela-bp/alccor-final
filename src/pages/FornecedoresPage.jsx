@@ -6,6 +6,7 @@ export default function FornecedoresPage() {
   return (
     <EntityPage table="fornecedores" title="Fornecedores" Icon={Truck} fields={[
       { key: 'nome', label: 'Nome', required: true },
+      { key: 'cnpj', label: 'CNPJ', type: 'cnpj', required: true },
       { key: 'telefone', label: 'Telefone', type: 'phone' },
       { key: 'email', label: 'E-mail', type: 'email' },
       { key: 'endereco', label: 'Endereço' },
