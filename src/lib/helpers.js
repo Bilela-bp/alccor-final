@@ -1,24 +1,32 @@
 // Funções utilitárias compartilhadas pelo sistema ALCCOR.
 
 // =========================================================================
-const fmtCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v) || 0);
-const fmtDate = (d) => (d ? new Date(d + (d.length <= 10 ? 'T00:00:00' : '')).toLocaleDateString('pt-BR') : '—');
-const fmtDateTime = (d) => (d ? new Date(d).toLocaleString('pt-BR') : '—');
+const fmtCurrency = (v) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    Number(v) || 0,
+  );
+const fmtDate = (d) =>
+  d
+    ? new Date(d + (d.length <= 10 ? "T00:00:00" : "")).toLocaleDateString(
+        "pt-BR",
+      )
+    : "—";
+const fmtDateTime = (d) => (d ? new Date(d).toLocaleString("pt-BR") : "—");
 const todayISO = () => new Date().toISOString().slice(0, 10);
-const monthISO = () => new Date().toISOString().slice(0, 7) + '-01';
+const monthISO = () => new Date().toISOString().slice(0, 7) + "-01";
 
 // Aplica a máscara 000.000.000-00 enquanto o usuário digita
 const maskCPF = (value) => {
-  const digits = (value || '').replace(/\D/g, '').slice(0, 11);
+  const digits = (value || "").replace(/\D/g, "").slice(0, 11);
   return digits
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 };
 
 // Valida os dígitos verificadores do CPF (algoritmo oficial)
 const isValidCPF = (value) => {
-  const cpf = (value || '').replace(/\D/g, '');
+  const cpf = (value || "").replace(/\D/g, "");
   if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
   let sum = 0;
   for (let i = 0; i < 9; i++) sum += Number(cpf[i]) * (10 - i);
@@ -34,21 +42,26 @@ const isValidCPF = (value) => {
 
 // Aplica a máscara 00.000.000/0000-00 enquanto o usuário digita
 const maskCNPJ = (value) => {
-  const digits = (value || '').replace(/\D/g, '').slice(0, 14);
+  const digits = (value || "").replace(/\D/g, "").slice(0, 14);
   return digits
-    .replace(/(\d{2})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1/$2')
-    .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+    .replace(/(\d{2})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1/$2")
+    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
 };
 
 // Valida os dígitos verificadores do CNPJ (algoritmo oficial)
 const isValidCNPJ = (value) => {
-  const cnpj = (value || '').replace(/\D/g, '');
+  const cnpj = (value || "").replace(/\D/g, "");
   if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
   const calcDigit = (base) => {
-    const weights = base.length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-    const sum = base.split('').reduce((s, d, i) => s + Number(d) * weights[i], 0);
+    const weights =
+      base.length === 12
+        ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = base
+      .split("")
+      .reduce((s, d, i) => s + Number(d) * weights[i], 0);
     const rest = sum % 11;
     return rest < 2 ? 0 : 11 - rest;
   };
@@ -60,11 +73,15 @@ const isValidCNPJ = (value) => {
 
 // Aplica a máscara (00) 00000-0000 (ou (00) 0000-0000 para fixo) enquanto digita
 const maskPhone = (value) => {
-  const digits = (value || '').replace(/\D/g, '').slice(0, 11);
+  const digits = (value || "").replace(/\D/g, "").slice(0, 11);
   if (digits.length <= 10) {
-    return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
+    return digits
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
   }
-  return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
+  return digits
+    .replace(/(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
 };
 
 // Validação de formato de e-mail (exige @ e um domínio com ponto).
@@ -72,7 +89,8 @@ const maskPhone = (value) => {
 // e-mail de confirmação ou consultar um serviço externo — não é algo confiável
 // de se fazer só no navegador. Para os usuários do sistema (login), o Supabase
 // Auth já impede e-mails duplicados/mal-formados na hora de criar a conta.
-const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((value || '').trim());
+const isValidEmail = (value) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((value || "").trim());
 
 function addDaysISO(dateISO, days) {
   const d = new Date(`${dateISO}T12:00:00`);
@@ -82,9 +100,9 @@ function addDaysISO(dateISO, days) {
 
 function makeUuid() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }

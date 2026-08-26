@@ -3,7 +3,7 @@
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const SESSION_STORAGE_KEY = 'alccor_session';
+const SESSION_STORAGE_KEY = "alccor_session";
 
 let currentSession = loadSession();
 
@@ -20,10 +20,7 @@ function saveSession(session) {
   currentSession = session;
 
   if (session) {
-    localStorage.setItem(
-      SESSION_STORAGE_KEY,
-      JSON.stringify(session)
-    );
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
   } else {
     localStorage.removeItem(SESSION_STORAGE_KEY);
   }
@@ -31,28 +28,24 @@ function saveSession(session) {
 
 export const getCurrentSession = () => currentSession;
 
-
 // ======================================================
 // LOGIN
 // ======================================================
 
 export async function signIn(email, password) {
-  const res = await fetch(
-    `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
-    {
-      method: 'POST',
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: "POST",
 
-      headers: {
-        apikey: SUPABASE_KEY,
-        'Content-Type': 'application/json',
-      },
+    headers: {
+      apikey: SUPABASE_KEY,
+      "Content-Type": "application/json",
+    },
 
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    }
-  );
+    body: JSON.stringify({
+      email,
+      password,
+    }),
+  });
 
   const text = await res.text();
 
@@ -61,18 +54,16 @@ export async function signIn(email, password) {
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
-    throw new Error(
-      'O servidor retornou uma resposta inválida.'
-    );
+    throw new Error("O servidor retornou uma resposta inválida.");
   }
 
   if (!res.ok) {
     throw new Error(
       data.error_description ||
-      data.msg ||
-      data.error ||
-      data.message ||
-      'E-mail ou senha inválidos.'
+        data.msg ||
+        data.error ||
+        data.message ||
+        "E-mail ou senha inválidos.",
     );
   }
 
@@ -81,28 +72,24 @@ export async function signIn(email, password) {
   return data;
 }
 
-
 // ======================================================
 // CADASTRO
 // ======================================================
 
 export async function signUpUser(email, password) {
-  const res = await fetch(
-    `${SUPABASE_URL}/auth/v1/signup`,
-    {
-      method: 'POST',
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: "POST",
 
-      headers: {
-        apikey: SUPABASE_KEY,
-        'Content-Type': 'application/json',
-      },
+    headers: {
+      apikey: SUPABASE_KEY,
+      "Content-Type": "application/json",
+    },
 
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    }
-  );
+    body: JSON.stringify({
+      email,
+      password,
+    }),
+  });
 
   const text = await res.text();
 
@@ -111,30 +98,25 @@ export async function signUpUser(email, password) {
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
-    throw new Error(
-      'O servidor retornou uma resposta inválida.'
-    );
+    throw new Error("O servidor retornou uma resposta inválida.");
   }
 
   if (!res.ok) {
     throw new Error(
       data.error_description ||
-      data.msg ||
-      data.error ||
-      data.message ||
-      'Não foi possível criar a conta.'
+        data.msg ||
+        data.error ||
+        data.message ||
+        "Não foi possível criar a conta.",
     );
   }
 
   if (!data.id && !data.user) {
-    throw new Error(
-      'Resposta inesperada ao criar a conta.'
-    );
+    throw new Error("Resposta inesperada ao criar a conta.");
   }
 
   return data.id ? data : data.user;
 }
-
 
 // ======================================================
 // LOGOUT
@@ -143,24 +125,19 @@ export async function signUpUser(email, password) {
 export async function signOut() {
   try {
     if (currentSession?.access_token) {
-      await fetch(
-        `${SUPABASE_URL}/auth/v1/logout`,
-        {
-          method: 'POST',
+      await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+        method: "POST",
 
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization:
-              `Bearer ${currentSession.access_token}`,
-          },
-        }
-      );
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${currentSession.access_token}`,
+        },
+      });
     }
   } catch {}
 
   saveSession(null);
 }
-
 
 // ======================================================
 // ATUALIZAR SESSÃO
@@ -176,18 +153,17 @@ async function refreshSession() {
     const res = await fetch(
       `${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
       {
-        method: 'POST',
+        method: "POST",
 
         headers: {
           apikey: SUPABASE_KEY,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
 
         body: JSON.stringify({
-          refresh_token:
-            currentSession.refresh_token,
+          refresh_token: currentSession.refresh_token,
         }),
-      }
+      },
     );
 
     const text = await res.text();
@@ -215,71 +191,46 @@ async function refreshSession() {
     saveSession(data);
 
     return true;
-
   } catch {
     saveSession(null);
     return false;
   }
 }
 
-
 // ======================================================
 // REQUEST REST API
 // ======================================================
 
-async function request(
-  path,
-  options = {},
-  retry = true
-) {
-  const token =
-    currentSession?.access_token ||
-    SUPABASE_KEY;
+async function request(path, options = {}, retry = true) {
+  const token = currentSession?.access_token || SUPABASE_KEY;
 
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/${path}`,
-    {
-      method: options.method || 'GET',
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: options.method || "GET",
 
-      headers: {
-        apikey: SUPABASE_KEY,
+    headers: {
+      apikey: SUPABASE_KEY,
 
-        Authorization:
-          `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
 
-        'Content-Type':
-          'application/json',
+      "Content-Type": "application/json",
 
-        Prefer:
-          options.prefer ||
-          'return=representation',
-      },
+      Prefer: options.prefer || "return=representation",
+    },
 
-      body: options.body,
-    }
-  );
-
+    body: options.body,
+  });
 
   // --------------------------------------------------
   // TOKEN EXPIRADO
   // --------------------------------------------------
 
-  if (
-    res.status === 401 &&
-    retry &&
-    currentSession
-  ) {
+  if (res.status === 401 && retry && currentSession) {
     const ok = await refreshSession();
 
     if (ok) {
-      return request(
-        path,
-        options,
-        false
-      );
+      return request(path, options, false);
     }
   }
-
 
   // --------------------------------------------------
   // LER RESPOSTA
@@ -297,7 +248,6 @@ async function request(
     }
   }
 
-
   // --------------------------------------------------
   // ERRO
   // --------------------------------------------------
@@ -309,11 +259,10 @@ async function request(
       data?.error_description ||
       data?.error ||
       res.statusText ||
-      'Erro ao acessar o servidor.';
+      "Erro ao acessar o servidor.";
 
     throw new Error(message);
   }
-
 
   // --------------------------------------------------
   // SEM CONTEÚDO
@@ -323,124 +272,82 @@ async function request(
     return null;
   }
 
-
   return data;
 }
-
 
 // ======================================================
 // GET
 // ======================================================
 
-export const get = (
-  table,
-  query = ''
-) =>
-  request(
-    `${table}?select=*${query}`
-  );
-
+export const get = (table, query = "") => request(`${table}?select=*${query}`);
 
 // ======================================================
 // INSERT
 // ======================================================
 
-export const insertRow = (
-  table,
-  data
-) =>
-  request(
-    table,
-    {
-      method: 'POST',
+export const insertRow = (table, data) =>
+  request(table, {
+    method: "POST",
 
-      body:
-        JSON.stringify(data),
-    }
-  );
-
+    body: JSON.stringify(data),
+  });
 
 // ======================================================
 // INSERT MULTIPLO
 // ======================================================
 
-export const insertRows = (
-  table,
-  rows
-) =>
-  request(
-    table,
-    {
-      method: 'POST',
+export const insertRows = (table, rows) =>
+  request(table, {
+    method: "POST",
 
-      body:
-        JSON.stringify(rows),
-    }
-  );
-
+    body: JSON.stringify(rows),
+  });
 
 // ======================================================
 // UPDATE
 // ======================================================
 
-export const updateRow = (
-  table,
-  id,
-  data
-) =>
-  request(
-    `${table}?id=eq.${id}`,
-    {
-      method: 'PATCH',
+export const updateRow = (table, id, data) =>
+  request(`${table}?id=eq.${id}`, {
+    method: "PATCH",
 
-      body:
-        JSON.stringify(data),
-    }
-  );
-
+    body: JSON.stringify(data),
+  });
 
 // ======================================================
 // DELETE
 // ======================================================
 
-export const deleteRow = (
-  table,
-  id
-) =>
-  request(
-    `${table}?id=eq.${id}`,
-    {
-      method: 'DELETE',
+export const deleteRow = (table, id) =>
+  request(`${table}?id=eq.${id}`, {
+    method: "DELETE",
 
-      prefer:
-        'return=minimal',
-    }
-  );
-
+    prefer: "return=minimal",
+  });
 
 // ======================================================
 // STORAGE (upload de arquivos — ex: projeto em zip anexado ao orçamento)
 // ======================================================
 
-const STORAGE_BUCKET = 'orcamentos-projetos';
+const STORAGE_BUCKET = "orcamentos-projetos";
 
 export async function uploadFile(path, file) {
   const token = currentSession?.access_token || SUPABASE_KEY;
   const res = await fetch(
     `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
         apikey: SUPABASE_KEY,
         Authorization: `Bearer ${token}`,
-        'Content-Type': file.type || 'application/zip',
-        'x-upsert': 'true',
+        "Content-Type": file.type || "application/zip",
+        "x-upsert": "true",
       },
       body: file,
-    }
+    },
   );
   if (!res.ok) {
-    let msg = 'Erro ao enviar o arquivo.';
+    let msg = "Erro ao enviar o arquivo.";
     try {
       const data = await res.json();
       msg = data?.message || data?.error || msg;
@@ -453,16 +360,13 @@ export async function uploadFile(path, file) {
 export async function deleteFile(path) {
   const token = currentSession?.access_token || SUPABASE_KEY;
   try {
-    await fetch(
-      `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`,
-      {
-        method: 'DELETE',
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+    });
   } catch {}
 }
 
