@@ -62,6 +62,9 @@ export default function ContasPagarPage({ user }) {
   const [fornecedores, setFornecedores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filtroInicio, setFiltroInicio] = useState("");
+  const [filtroFim, setFiltroFim] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -219,10 +222,29 @@ export default function ContasPagarPage({ user }) {
     return fornecedores.find((f) => f.id === row.fornecedor_id)?.nome || "—";
   };
 
-  const filtered = contas.filter(
-    (c) =>
-      !search || JSON.stringify(c).toLowerCase().includes(search.toLowerCase()),
-  );
+  const filtered = contas.filter((c) => {
+    const correspondeBusca =
+      !search || JSON.stringify(c).toLowerCase().includes(search.toLowerCase());
+    const dataVencimento = String(c.data_vencimento || "").slice(0, 10);
+    const correspondeInicio = !filtroInicio || dataVencimento >= filtroInicio;
+    const correspondeFim = !filtroFim || dataVencimento <= filtroFim;
+    const correspondeStatus = !filtroStatus || c.status === filtroStatus;
+
+    return (
+      correspondeBusca &&
+      correspondeInicio &&
+      correspondeFim &&
+      correspondeStatus
+    );
+  });
+
+  function limparFiltros() {
+    setSearch("");
+    setFiltroInicio("");
+    setFiltroFim("");
+    setFiltroStatus("");
+    setPagina(1);
+  }
 
   const PAGE_SIZE = 12;
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -271,6 +293,48 @@ export default function ContasPagarPage({ user }) {
           </PrimaryButton>
         </div>
       </PageHeader>
+
+      <div className="bg-white border border-stone-200 rounded-xl p-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+          <Field label="Vencimento a partir de">
+            <input
+              type="date"
+              value={filtroInicio}
+              onChange={(e) => {
+                setFiltroInicio(e.target.value);
+                setPagina(1);
+              }}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Vencimento até">
+            <input
+              type="date"
+              value={filtroFim}
+              onChange={(e) => {
+                setFiltroFim(e.target.value);
+                setPagina(1);
+              }}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Status">
+            <select
+              value={filtroStatus}
+              onChange={(e) => {
+                setFiltroStatus(e.target.value);
+                setPagina(1);
+              }}
+              className={inputCls}
+            >
+              <option value="">Todos os status</option>
+              <option value="pendente">Pendente</option>
+              <option value="pago">Pago</option>
+            </select>
+          </Field>
+          <SecondaryButton onClick={limparFiltros}>Limpar filtros</SecondaryButton>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
         <Stat
@@ -425,7 +489,7 @@ export default function ContasPagarPage({ user }) {
                     setHeader((p) => ({ ...p, fornecedor_id: v }))
                   }
                   options={fornecedores.map((f) => ({
-                    value: f.id,
+                    id: f.id,
                     label: f.nome,
                   }))}
                   placeholder="Selecione o fornecedor…"
