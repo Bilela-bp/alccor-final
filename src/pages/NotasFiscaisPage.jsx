@@ -15,6 +15,7 @@ import {
   Pagination,
   inputCls,
 } from "../components/ui";
+import { sincronizarMovimentoCaixa } from "../lib/caixa";
 
 export default function NotasFiscaisPage({ user }) {
   const submittingRef = useRef(false);
@@ -220,6 +221,19 @@ export default function NotasFiscaisPage({ user }) {
         preco_unitario: Number(it.preco_unitario),
       }));
       await insertRows("notas_fiscais_itens", rows);
+      await sincronizarMovimentoCaixa({
+        origemTabela: "notas_fiscais",
+        origemId: notaId,
+        deveLancar: total > 0,
+        tipo: "saida",
+        valor: total,
+        formaPagamento: "transferencia",
+        categoria: "Nota fiscal de entrada",
+        descricao: `Nota fiscal ${header.numero}`,
+        fornecedorId: header.fornecedor_id,
+        usuarioId: user.id,
+        data: `${header.data_emissao}T12:00:00.000Z`,
+      });
       setModalOpen(false);
       await load();
     } catch (e) {
@@ -242,6 +256,11 @@ export default function NotasFiscaisPage({ user }) {
     )
       return;
     try {
+      await sincronizarMovimentoCaixa({
+        origemTabela: "notas_fiscais",
+        origemId: nota.id,
+        deveLancar: false,
+      });
       await deleteRow("notas_fiscais", nota.id);
       await load();
     } catch (e) {

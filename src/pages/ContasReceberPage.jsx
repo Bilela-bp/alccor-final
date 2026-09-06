@@ -27,6 +27,7 @@ import {
   Stat,
   inputCls,
 } from "../components/ui";
+import { sincronizarMovimentoCaixa } from "../lib/caixa";
 
 export default function ContasReceberPage({ user }) {
   const [rows, setRows] = useState([]);
@@ -100,31 +101,20 @@ export default function ContasReceberPage({ user }) {
   }
 
   async function registrarRecebimentoNoCaixa(savedRow, oldRow) {
-    if (
-      savedRow.status !== "recebido" ||
-      (oldRow && oldRow.status === "recebido")
-    )
-      return;
-    const abertos = await get(
-      "caixa",
-      "&status=eq.aberto&order=data_abertura.desc",
-    );
-    if (!abertos?.length) {
-      window.alert(
-        "Conta marcada como recebida. Não há caixa aberto agora; lance essa entrada manualmente no Caixa.",
-      );
-      return;
-    }
-    await insertRow("movimentacoes_caixa", {
-      caixa_id: abertos[0].id,
+    await sincronizarMovimentoCaixa({
+      origemTabela: "contas_receber",
+      origemId: savedRow.id,
+      deveLancar: savedRow.status === "recebido",
       tipo: "entrada",
       valor: Number(savedRow.valor),
-      forma_pagamento: "transferencia",
+      formaPagamento: "transferencia",
       categoria: "Conta a receber",
       descricao: savedRow.descricao,
-      cliente_id: savedRow.cliente_id || null,
-      usuario_id: user.id,
-      data: new Date().toISOString(),
+      clienteId: savedRow.cliente_id || null,
+      usuarioId: user.id,
+      data: savedRow.data_recebimento
+        ? `${savedRow.data_recebimento}T12:00:00.000Z`
+        : undefined,
     });
   }
 
@@ -212,6 +202,11 @@ export default function ContasReceberPage({ user }) {
     if (!window.confirm("Excluir esta conta? Essa ação não pode ser desfeita."))
       return;
     try {
+      await sincronizarMovimentoCaixa({
+        origemTabela: "contas_receber",
+        origemId: row.id,
+        deveLancar: false,
+      });
       await deleteRow("contas_receber", row.id);
       await load();
     } catch (e) {

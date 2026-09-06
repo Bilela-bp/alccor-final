@@ -34,6 +34,7 @@ import {
   Pagination,
   inputCls,
 } from "../components/ui";
+import { sincronizarMovimentoCaixa } from "../lib/caixa";
 
 // =========================================================================
 // CONTAS A PAGAR (valor, data de vencimento e anexo de documento PDF)
@@ -189,8 +190,39 @@ export default function ContasPagarPage({ user }) {
 
       if (editing) {
         await updateRow("contas_pagar", editing.id, payload);
+        await sincronizarMovimentoCaixa({
+          origemTabela: "contas_pagar",
+          origemId: editing.id,
+          deveLancar: payload.status === "pago",
+          tipo: "saida",
+          valor: payload.valor,
+          formaPagamento: "transferencia",
+          categoria: "Conta a pagar",
+          descricao: payload.descricao,
+          fornecedorId: payload.fornecedor_id,
+          usuarioId: user.id,
+          data: payload.data_pagamento
+            ? `${payload.data_pagamento}T12:00:00.000Z`
+            : undefined,
+        });
       } else {
-        await insertRow("contas_pagar", payload);
+        const created = await insertRow("contas_pagar", payload);
+        const saved = Array.isArray(created) ? created[0] : created;
+        await sincronizarMovimentoCaixa({
+          origemTabela: "contas_pagar",
+          origemId: saved.id,
+          deveLancar: payload.status === "pago",
+          tipo: "saida",
+          valor: payload.valor,
+          formaPagamento: "transferencia",
+          categoria: "Conta a pagar",
+          descricao: payload.descricao,
+          fornecedorId: payload.fornecedor_id,
+          usuarioId: user.id,
+          data: payload.data_pagamento
+            ? `${payload.data_pagamento}T12:00:00.000Z`
+            : undefined,
+        });
       }
 
       setModalOpen(false);
@@ -211,6 +243,11 @@ export default function ContasPagarPage({ user }) {
       return;
     try {
       if (row.documento_path) await deleteFile(row.documento_path);
+      await sincronizarMovimentoCaixa({
+        origemTabela: "contas_pagar",
+        origemId: row.id,
+        deveLancar: false,
+      });
       await deleteRow("contas_pagar", row.id);
       await load();
     } catch (e) {

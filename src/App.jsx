@@ -107,7 +107,7 @@ export default function App() {
       case "fornecedores":
         return <FornecedoresPage />;
       case "contas_pagar":
-        return <ContasPagarPage />;
+        return <ContasPagarPage user={user} />;
       case "contas_receber":
         return <ContasReceberPage user={user} />;
       case "caixa":
@@ -115,7 +115,7 @@ export default function App() {
       case "funcionarios":
         return <FuncionariosPage />;
       case "folha":
-        return <FolhaPage />;
+        return <FolhaPage user={user} />;
       case "relatorios":
         return <RelatoriosPage />;
       case "usuarios":

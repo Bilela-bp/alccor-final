@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { CalendarCheck, Pencil } from "lucide-react";
 import { get, insertRow, updateRow } from "../lib/supabase";
 import { fmtCurrency, monthISO, todayISO } from "../lib/helpers";
+import { sincronizarMovimentoCaixa } from "../lib/caixa";
 import {
   Badge,
   EmptyState,
@@ -15,7 +16,7 @@ import {
   inputCls,
 } from "../components/ui";
 
-export default function FolhaPage() {
+export default function FolhaPage({ user }) {
   const gerarRef = useRef(false);
   const editRef = useRef(false);
   const [folhas, setFolhas] = useState([]);
@@ -105,14 +106,31 @@ export default function FolhaPage() {
     if (editRef.current) return;
     editRef.current = true;
     try {
+      const bonus = Number(form.bonus) || 0;
+      const descontos = Number(form.descontos) || 0;
+      const dataPagamento =
+        form.status === "paga"
+          ? form.data_pagamento || todayISO()
+          : form.data_pagamento || null;
       await updateRow("folha_pagamento", editing.id, {
-        bonus: Number(form.bonus) || 0,
-        descontos: Number(form.descontos) || 0,
+        bonus,
+        descontos,
         status: form.status,
-        data_pagamento:
-          form.status === "paga"
-            ? form.data_pagamento || todayISO()
-            : form.data_pagamento || null,
+        data_pagamento: dataPagamento,
+      });
+      await sincronizarMovimentoCaixa({
+        origemTabela: "folha_pagamento",
+        origemId: editing.id,
+        deveLancar: form.status === "paga",
+        tipo: "saida",
+        valor: Number(editing.salario_base) + bonus - descontos,
+        formaPagamento: "transferencia",
+        categoria: "Folha de pagamento",
+        descricao: `Folha de ${String(editing.mes_referencia).slice(0, 7)}`,
+        usuarioId: user?.id || null,
+        data: dataPagamento
+          ? `${dataPagamento}T12:00:00.000Z`
+          : undefined,
       });
       setEditing(null);
       await load();
