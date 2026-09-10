@@ -20,6 +20,9 @@ Contém todas as migrações do banco de dados em ordem sequencial. Execute na s
 11. **`migration_009_orcamentos_historico.sql`** - Orçamentos no histórico
 12. **`migration_010_orcamentos_anexo_status.sql`** - Status "Projeto concluído" e anexos
 13. **`migration_011_cliente_temporario.sql`** - Cliente sem cadastro em orçamentos
+14. **`migration_012_contas_pagar_documento.sql`** - Anexos das contas a pagar
+15. **`migration_013_movimentacoes_automaticas.sql`** - Vincula movimentos do caixa à origem
+16. **`migration_014_contas_pagar_descricao_opcional.sql`** - Permite contas a pagar sem descrição
 
 ### `/diagnostics/`
 Scripts de diagnóstico para verificar o estado do banco de dados:

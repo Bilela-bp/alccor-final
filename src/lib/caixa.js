@@ -64,3 +64,28 @@ export async function sincronizarMovimentoCaixa({
     ...payload,
   });
 }
+
+export async function sincronizarContasPagarPendentes(usuarioId) {
+  const contas = await get(
+    "contas_pagar",
+    "&status=eq.pago&order=data_pagamento.asc,criado_em.asc",
+  );
+
+  for (const conta of contas || []) {
+    await sincronizarMovimentoCaixa({
+      origemTabela: "contas_pagar",
+      origemId: conta.id,
+      deveLancar: true,
+      tipo: "saida",
+      valor: conta.valor,
+      formaPagamento: "transferencia",
+      categoria: "Conta a pagar",
+      descricao: conta.descricao,
+      fornecedorId: conta.fornecedor_id,
+      usuarioId,
+      data: conta.data_pagamento
+        ? `${conta.data_pagamento}T12:00:00.000Z`
+        : undefined,
+    });
+  }
+}

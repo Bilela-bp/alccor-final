@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronRight, Lock, Plus, Unlock, Wallet } from "lucide-react";
 import { get, insertRow, updateRow } from "../lib/supabase";
 import { fmtCurrency, fmtDateTime } from "../lib/helpers";
+import { sincronizarContasPagarPendentes } from "../lib/caixa";
 import {
   Badge,
   ComboSelect,
@@ -52,6 +53,9 @@ export default function CaixaPage({ user }) {
       setCaixas(c || []);
       setClientes(cl || []);
       setFornecedores(fo || []);
+      if (c?.some((caixa) => caixa.status === "aberto")) {
+        await sincronizarContasPagarPendentes(user.id);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -73,6 +77,7 @@ export default function CaixaPage({ user }) {
         status: "aberto",
         usuario_id: user.id,
       });
+      await sincronizarContasPagarPendentes(user.id);
       setOpenModal(false);
       setValorAbertura("");
       await load();

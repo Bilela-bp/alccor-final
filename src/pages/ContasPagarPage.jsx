@@ -142,11 +142,6 @@ export default function ContasPagarPage({ user }) {
       return;
     }
 
-    if (!header.descricao?.trim()) {
-      window.alert("Informe a descrição.");
-      return;
-    }
-
     if (header.valor === "" || Number(header.valor) < 0) {
       window.alert("Informe o valor.");
       return;
@@ -164,7 +159,7 @@ export default function ContasPagarPage({ user }) {
         fornecedor_id: header.fornecedor_id,
         data_vencimento: header.data_vencimento,
         data_pagamento: header.data_pagamento || null,
-        descricao: header.descricao,
+        descricao: header.descricao?.trim() || null,
         valor: Number(header.valor),
         status: header.status,
       };
