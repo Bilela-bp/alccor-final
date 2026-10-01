@@ -22,6 +22,7 @@ import {
   LoadingRows,
   Modal,
   PageHeader,
+  Pagination,
   PrimaryButton,
   SecondaryButton,
   Stat,

@@ -14,6 +14,7 @@ import {
   Field,
   LoadingRows,
   PageHeader,
+  Pagination,
   SecondaryButton,
   Stat,
   inputCls,
@@ -21,6 +22,7 @@ import {
 
 export default function RelatoriosPage() {
   const [tab, setTab] = useState("receber");
+  const [paginaFluxo, setPaginaFluxo] = useState(1);
   const [receber, setReceber] = useState([]);
   const [pagar, setPagar] = useState([]);
   const [movs, setMovs] = useState([]);
@@ -63,6 +65,13 @@ export default function RelatoriosPage() {
   const cr = receber.filter((r) => inRange(r.data_vencimento));
   const cp = pagar.filter((r) => inRange(r.data_vencimento));
   const fluxo = movs.filter((m) => inRange(m.data));
+  const pageSize = 12;
+  const totalPaginasFluxo = Math.max(1, Math.ceil(fluxo.length / pageSize));
+  const paginaAtualFluxo = Math.min(paginaFluxo, totalPaginasFluxo);
+  const fluxoPaginado = fluxo.slice(
+    (paginaAtualFluxo - 1) * pageSize,
+    paginaAtualFluxo * pageSize,
+  );
   const nomeCliente = (id) => clientes.find((c) => c.id === id)?.nome || "—";
   const nomeFornecedor = (id) =>
     fornecedores.find((f) => f.id === id)?.nome || "—";
@@ -132,7 +141,10 @@ export default function RelatoriosPage() {
               type="date"
               className={inputCls}
               value={inicio}
-              onChange={(e) => setInicio(e.target.value)}
+              onChange={(e) => {
+                setInicio(e.target.value);
+                setPaginaFluxo(1);
+              }}
             />
           </Field>
           <Field label="Data final">
@@ -140,14 +152,20 @@ export default function RelatoriosPage() {
               type="date"
               className={inputCls}
               value={fim}
-              onChange={(e) => setFim(e.target.value)}
+              onChange={(e) => {
+                setFim(e.target.value);
+                setPaginaFluxo(1);
+              }}
             />
           </Field>
           <div className="flex gap-1">
             {["receber", "pagar", "fluxo"].map((t) => (
               <button
                 key={t}
-                onClick={() => setTab(t)}
+                onClick={() => {
+                  setTab(t);
+                  setPaginaFluxo(1);
+                }}
                 className={`px-3 py-2 rounded-lg text-sm font-medium ${tab === t ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-600"}`}
               >
                 {t === "receber"
@@ -215,7 +233,7 @@ export default function RelatoriosPage() {
                 </tr>
               </thead>
               <tbody>
-                {fluxo.map((m) => (
+                {fluxoPaginado.map((m) => (
                   <tr key={m.id} className="border-b border-stone-100">
                     <td className="px-4 py-2.5">{fmtDateTime(m.data)}</td>
                     <td className="px-4 py-2.5">
@@ -226,8 +244,10 @@ export default function RelatoriosPage() {
                       )}
                     </td>
                     <td className="px-4 py-2.5">{m.categoria || "—"}</td>
-                    <td className="px-4 py-2.5 align-top whitespace-normal break-words max-w-[220px]">
-                      {m.descricao || "—"}
+                    <td className="px-4 py-2.5 align-top">
+                      <div className="max-w-[220px] whitespace-pre-wrap break-words">
+                        {m.descricao || "—"}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5 text-right font-medium">
                       {fmtCurrency(m.valor)}
@@ -242,6 +262,13 @@ export default function RelatoriosPage() {
                 text="Nenhuma movimentação no período."
               />
             )}
+            <Pagination
+              page={paginaAtualFluxo}
+              totalPages={totalPaginasFluxo}
+              totalItems={fluxo.length}
+              pageSize={pageSize}
+              onPageChange={setPaginaFluxo}
+            />
           </div>
         </div>
       )}
@@ -274,8 +301,10 @@ function ReportTable({ title, rows, nameFor, dateKey, statusLabels, total }) {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-b border-stone-100">
-                  <td className="px-4 py-2.5 align-top whitespace-normal break-words max-w-[220px]">
-                    {r.descricao}
+                  <td className="px-4 py-2.5 align-top">
+                    <div className="max-w-[220px] whitespace-pre-wrap break-words">
+                      {r.descricao}
+                    </div>
                   </td>
                   <td className="px-4 py-2.5">
                     {nameFor(r.cliente_id || r.fornecedor_id)}
